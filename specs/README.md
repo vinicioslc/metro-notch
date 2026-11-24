@@ -16,5 +16,6 @@ código para rastreio.
 | SC-01..SC-04, LC-01..LC-05, AU-01..AU-03 | [09-llm-chat-and-screen.md](09-llm-chat-and-screen.md) | implementado |
 | MN-01..MN-08 | [10-rename-metro-notch.md](10-rename-metro-notch.md) | implementado |
 | MV-01..MV-05 | [11-macos-visual.md](11-macos-visual.md) | implementado |
+| NV-01..NV-06 | [12-alert-task-nav.md](12-alert-task-nav.md) | implementado |
 | RF-19 | [2026-11-22-sorting-order.md](2026-11-22-sorting-order.md) | implementado |
 | ED-01 | [2026-11-22-task-editing.md](2026-11-22-task-editing.md) | implementado |

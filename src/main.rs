@@ -207,10 +207,17 @@ pub fn state_path() -> PathBuf {
 fn shape_window(hwnd: Hwnd, w: i32, h: i32, scale: f64) {
     let pw = (w as f64 * scale).round() as i32;
     let ph = (h as f64 * scale).round() as i32;
-    // macOS-like rounded bottom corners.
-    let r = if ph <= 12 { 8 } else { 18 };
-    let pr = (r as f64 * scale).round() as i32;
     unsafe {
+        // Compacto: região reta. SetWindowRgn não tem antialias, então
+        // arredondar uma tira de 5px só produz degraus (borda dura).
+        if ph <= 12 {
+            SetWindowRgn(hwnd, CreateRectRgn(0, 0, pw, ph), 1);
+            return;
+        }
+        // Expandido: cantos inferiores arredondados. O raio da região é menor
+        // que o do CSS para a curva visível ser a do CSS (com antialias); a
+        // região só recorta o acrylic que vazaria nos cantos.
+        let pr = (12.0 * scale).round() as i32;
         let top = CreateRectRgn(0, 0, pw, pr);
         let round = CreateRoundRectRgn(0, 0, pw, ph, pr * 2, pr * 2);
         let combined = CreateRectRgn(0, 0, 0, 0);

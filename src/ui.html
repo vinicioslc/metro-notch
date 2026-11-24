@@ -43,13 +43,13 @@ body {
   flex: none;
   width: 560px;
   height: 5px;
-  border-radius: 0 0 8px 8px;
+  border-radius: 0;
   border: none;
   background: color-mix(in srgb, var(--bg) 58%, transparent);
-  box-shadow:
-    inset 0 0 0 .5px color-mix(in srgb, var(--text) 14%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--text) 7%, transparent),
-    0 10px 32px -16px rgba(0,0,0,.65);
+  /* compacto: some nas últimas 30% da altura, para não terminar numa linha dura */
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+  box-shadow: 0 6px 20px -12px rgba(0,0,0,.6);
   overflow: hidden;
   transition: width .45s cubic-bezier(.16,1,.3,1), height .45s cubic-bezier(.16,1,.3,1), background .24s ease, box-shadow .24s ease;
   will-change: width, height;
@@ -60,10 +60,9 @@ body {
 .state-settings #notch {
   border-radius: 0 0 18px 18px;
   background: color-mix(in srgb, var(--bg) 68%, transparent);
-  box-shadow:
-    inset 0 0 0 .5px color-mix(in srgb, var(--text) 16%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent),
-    0 18px 48px -20px rgba(0,0,0,.7);
+  -webkit-mask-image: none;
+  mask-image: none;
+  box-shadow: 0 18px 48px -20px rgba(0,0,0,.7);
 }
 
 .sec {
@@ -145,6 +144,27 @@ body {
 }
 .alert-check:active { transform: scale(.94); }
 .alert-check svg { width: 14px; height: 14px; }
+/* chevrons de navegação entre pendentes; discretas e ocultas nas pontas */
+.alert-nav {
+  width: 14px;
+  height: 26px;
+  margin-inline: -5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  opacity: .5;
+  cursor: pointer;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity .15s ease, color .15s ease;
+}
+.alert-nav:hover { opacity: 1; color: var(--border); }
+.alert-nav:active { transform: scale(.88); }
+.alert-nav svg { width: 12px; height: 12px; }
+.alert-nav[hidden] { display: none; }
 .alert-count {
   min-width: 24px;
   height: 22px;
@@ -688,7 +708,13 @@ body {
         <button class="alert-check" id="alertCheck" title="Finalizar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
         </button>
+        <button class="alert-nav" id="alertPrev" title="Anterior" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
         <div class="marquee"><span class="marquee-inner" id="marqueeText"></span></div>
+        <button class="alert-nav" id="alertNext" title="Próxima" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
         <span class="alert-count" id="alertCount">0</span>
       </div>
       <div class="progress"><span id="progressBar"></span></div>
@@ -871,6 +897,8 @@ const marqueeText = document.getElementById('marqueeText');
 const progressBar = document.getElementById('progressBar');
 const alertCountEl = document.getElementById('alertCount');
 const alertCheck = document.getElementById('alertCheck');
+const alertPrev = document.getElementById('alertPrev');
+const alertNext = document.getElementById('alertNext');
 const pendingCountEl = document.getElementById('pendingCount');
 const addForm = document.getElementById('addForm');
 const addInput = document.getElementById('addInput');
@@ -1332,6 +1360,30 @@ function alertTask() {
   return pending.find(t => t.id === state.lastId) || pending[0];
 }
 
+// posição da tarefa exibida dentro das pendentes
+function alertIndex() {
+  const pending = state.S.tasks.filter(t => !t.done);
+  return { pending, i: pending.findIndex(t => t.id === state.lastId) };
+}
+
+// chevron só aparece quando existe vizinho para aquele lado
+function updateAlertNav() {
+  const { pending, i } = alertIndex();
+  alertPrev.hidden = i <= 0;
+  alertNext.hidden = i < 0 || i >= pending.length - 1;
+}
+
+function stepAlert(dir) {
+  const { pending, i } = alertIndex();
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= pending.length) return;
+  state.lastId = pending[j].id;
+  showAlert(pending[j], { slideIn: true });
+}
+
+alertPrev.addEventListener('click', e => { e.stopPropagation(); stepAlert(-1); });
+alertNext.addEventListener('click', e => { e.stopPropagation(); stepAlert(1); });
+
 // Alerta por hover: mesmo visual do alerta automático, sem reagendar nada.
 function hoverAlert() {
   const task = alertTask();
@@ -1342,6 +1394,7 @@ function hoverAlert() {
 
 function showAlert(task, opts = {}) {
   const from = [notch.offsetWidth, notch.offsetHeight];
+  state.lastId = task.id;
   state.view = 'alert';
   stage.className = 'state-alert';
   document.querySelectorAll('.sec').forEach(el => el.classList.toggle('on', el.dataset.view === 'alert'));
@@ -1363,6 +1416,7 @@ function showAlert(task, opts = {}) {
     marqueeText.textContent = text;
   }
   runMarquee();
+  updateAlertNav();
   if (alertCountEl) {
     const pending = state.S.tasks.filter(t => !t.done).length;
     alertCountEl.textContent = String(pending);
