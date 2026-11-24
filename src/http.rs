@@ -128,8 +128,21 @@ fn route(method: &str, path: &str, body: &str, shared: &SharedState, proxy: &Eve
             return ("400 Bad Request", json!({"error":"messages required"}).to_string(), "application/json");
         }
         let screen = parsed.get("screen").and_then(|v| v.as_bool()).unwrap_or(true);
-        return match crate::llm::chat(chat_messages(msgs, screen)) {
+        return match crate::llm::chat(crate::llm::messages(msgs, screen)) {
             Ok(reply) => ("200 OK", json!({"reply": reply}).to_string(), "application/json"),
+            Err(e) => ("502 Bad Gateway", json!({"error": e}).to_string(), "application/json"),
+        };
+    }
+
+    if path == "/api/transcribe" && method == "POST" {
+        let parsed: Value = serde_json::from_str(body).unwrap_or(json!({}));
+        let audio = parsed.get("audio").and_then(|v| v.as_str()).unwrap_or("");
+        let format = parsed.get("format").and_then(|v| v.as_str()).unwrap_or("wav");
+        if audio.is_empty() {
+            return ("400 Bad Request", json!({"error":"audio required (base64)"}).to_string(), "application/json");
+        }
+        return match crate::llm::transcribe(audio, format) {
+            Ok(text) => ("200 OK", json!({"text": text}).to_string(), "application/json"),
             Err(e) => ("502 Bad Gateway", json!({"error": e}).to_string(), "application/json"),
         };
     }
@@ -360,6 +373,7 @@ fn tool_list() -> Value {
         {"name":"trigger_alert","description":"Return the task that would be shown next.","inputSchema":{"type":"object","properties":{}}},
         {"name":"read_screen","description":"Read the text of the foreground window via Windows UI Automation (no OCR, no GPU).","inputSchema":{"type":"object","properties":{"chars":{"type":"integer"}}}},
         {"name":"chat","description":"Chat with the local LLM; the current screen text is attached as context unless screen=false.","inputSchema":{"type":"object","properties":{"message":{"type":"string"},"screen":{"type":"boolean"}},"required":["message"]}},
+        {"name":"transcribe","description":"Transcribe base64 audio with the local lfm3-omni model (wav/webm/ogg; webm/ogg converted via ffmpeg).","inputSchema":{"type":"object","properties":{"audio":{"type":"string"},"format":{"type":"string"}},"required":["audio"]}},
         {"name":"quit","description":"Quit the application.","inputSchema":{"type":"object","properties":{}}}
     ])
 }
@@ -573,8 +587,19 @@ fn call_tool(name: &str, args: Value, shared: &SharedState, proxy: &EventLoopPro
             }
             let screen = args.get("screen").and_then(|v| v.as_bool()).unwrap_or(true);
             let msgs = vec![json!({"role": "user", "content": message})];
-            match crate::llm::chat(chat_messages(msgs, screen)) {
+            match crate::llm::chat(crate::llm::messages(msgs, screen)) {
                 Ok(reply) => (false, reply),
+                Err(e) => (true, json!({"error": e}).to_string()),
+            }
+        }
+        "transcribe" => {
+            let audio = args.get("audio").and_then(|v| v.as_str()).unwrap_or("");
+            let format = args.get("format").and_then(|v| v.as_str()).unwrap_or("wav");
+            if audio.is_empty() {
+                return (true, json!({"error":"audio required"}).to_string());
+            }
+            match crate::llm::transcribe(audio, format) {
+                Ok(text) => (false, text),
                 Err(e) => (true, json!({"error": e}).to_string()),
             }
         }
@@ -583,24 +608,6 @@ fn call_tool(name: &str, args: Value, shared: &SharedState, proxy: &EventLoopPro
         }
         _ => (true, json!({"error": format!("unknown tool {}", name)}).to_string()),
     }
-}
-
-/// Mensagens enviadas ao LLM: prompt de sistema (+ texto da tela) e depois a
-/// conversa. A tela entra como system para não ser confundida com pedido do
-/// usuário.
-fn chat_messages(mut msgs: Vec<Value>, screen: bool) -> Value {
-    let mut system = crate::llm::SYSTEM.to_string();
-    if screen {
-        if let Ok(text) = crate::screen::read(4000) {
-            if !text.trim().is_empty() {
-                system.push_str("\n\n--- conteúdo da tela agora ---\n");
-                system.push_str(&text);
-            }
-        }
-    }
-    let mut out = vec![json!({"role": "system", "content": system})];
-    out.append(&mut msgs);
-    Value::Array(out)
 }
 
 fn query_param(query: &str, key: &str) -> Option<String> {

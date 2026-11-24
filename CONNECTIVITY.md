@@ -23,6 +23,7 @@ Tools:
 - `add_task`, `update_task`, `complete_task`, `remove_task`, `reorder_tasks`
 - `stats`
 - `get_settings`, `set_settings`
+- `read_screen` (texto da janela ativa via UI Automation), `chat` (LLM local)
 - `trigger_alert`, `quit`
 
 Modelo de tarefa interno:
@@ -50,7 +51,26 @@ Exemplo de config do cliente (`mcpServers`):
 - `GET  /api/tasks?filter=all|pending|done` / `POST /api/tasks`
 - `GET  /api/tasks/{id}` / `PATCH /api/tasks/{id}` / `DELETE /api/tasks/{id}`
 - `GET  /api/settings` / `POST /api/settings`
+- `GET  /api/screen?chars=4000` — texto da janela em primeiro plano (UI Automation)
+- `GET  /api/llm` — runtime/modelo do chat e se está disponível
+- `POST /api/chat` — `{"messages":[…],"screen":true}` → `{"reply":"…"}`
 - `POST /api/quit`
+
+## Chat local (LLM)
+
+O chat usa o runtime já instalado na máquina (Ollama em `127.0.0.1:11434`),
+com o texto da tela como contexto. Configuração por env:
+
+| Variável | Padrão | Efeito |
+|---|---|---|
+| `METRO_LLM_URL` | `http://127.0.0.1:11434` | runtime HTTP compatível |
+| `METRO_LLM_MODEL` | `lfm3:1.7b` | modelo instalado |
+| `METRO_LLM_CTX` | `4096` | janela de contexto |
+| `METRO_LLM_GPU_LAYERS` | `0` | camadas na GPU; `0` = CPU, 0 MB de VRAM |
+
+Para um modelo mais rápido: `ollama pull qwen3:0.6b` e
+`METRO_LLM_MODEL=qwen3:0.6b`. Acima de ~10 camadas na GPU o contexto CUDA já
+passa do teto de 500 MB, então o padrão é CPU.
 
 ## Push para a UI
 

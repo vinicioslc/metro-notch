@@ -10,7 +10,7 @@ mod screen;
 use tao::{
     dpi::{LogicalSize, PhysicalPosition},
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoopBuilder},
+    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
     platform::windows::{WindowBuilderExtWindows, WindowExtWindows},
     window::{Window, WindowBuilder},
 };
@@ -276,7 +276,13 @@ fn set_autostart(on: bool) {
     let _ = legacy.status();
 }
 
-fn handle_ipc(body: &str, window: &Window, webview: &WebView, shared: &SharedState) {
+fn handle_ipc(
+    body: &str,
+    window: &Window,
+    webview: &WebView,
+    shared: &SharedState,
+    proxy: &EventLoopProxy<UserEvent>,
+) {
     let Ok(msg) = serde_json::from_str::<serde_json::Value>(body) else {
         return;
     };
@@ -313,6 +319,34 @@ fn handle_ipc(body: &str, window: &Window, webview: &WebView, shared: &SharedSta
             }
         }
         Some("autostart") => set_autostart(msg["on"].as_bool().unwrap_or(false)),
+        Some("chat") => {
+            let msgs = msg["messages"].as_array().cloned().unwrap_or_default();
+            let screen = msg["screen"].as_bool().unwrap_or(true);
+            let proxy = proxy.clone();
+            std::thread::spawn(move || {
+                let out = match llm::chat(llm::messages(msgs, screen)) {
+                    Ok(reply) => serde_json::json!({"reply": reply}),
+                    Err(e) => serde_json::json!({"error": e}),
+                };
+                let _ = proxy.send_event(UserEvent::Eval(format!("window.__chatReply({out});")));
+            });
+        }
+        Some("transcribe") => {
+            let audio = msg.get("audio").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let format = msg.get("format").and_then(|v| v.as_str()).unwrap_or("wav").to_string();
+            let p = proxy.clone();
+            std::thread::spawn(move || {
+                let out = if audio.is_empty() {
+                    serde_json::json!({"error":"audio vazio"})
+                } else {
+                    match llm::transcribe(&audio, &format) {
+                        Ok(text) => serde_json::json!({"text": text}),
+                        Err(e) => serde_json::json!({"error": e}),
+                    }
+                };
+                let _ = p.send_event(UserEvent::Eval(format!("window.__transcribeReply({out});")));
+            });
+        }
         Some("quit") => std::process::exit(0),
         _ => {}
     }
@@ -383,11 +417,12 @@ fn main() -> wry::Result<()> {
         .unwrap_or(7878);
     http::start(shared.clone(), proxy.clone(), port);
 
+    let ipc_proxy = proxy.clone();
     let webview = WebViewBuilder::new()
         .with_html(HTML)
         .with_transparent(true)
         .with_ipc_handler(move |req| {
-            let _ = proxy.send_event(UserEvent::Ipc(req.body().clone()));
+            let _ = ipc_proxy.send_event(UserEvent::Ipc(req.body().clone()));
         })
         .build(&window)
         .expect("failed to create webview");
@@ -399,7 +434,7 @@ fn main() -> wry::Result<()> {
                 window.set_always_on_top(true);
                 *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_secs(3));
             }
-            Event::UserEvent(UserEvent::Ipc(body)) => handle_ipc(&body, &window, &webview, &shared),
+            Event::UserEvent(UserEvent::Ipc(body)) => handle_ipc(&body, &window, &webview, &shared, &proxy),
             Event::UserEvent(UserEvent::Eval(script)) => {
                 let _ = webview.evaluate_script(&script);
             }

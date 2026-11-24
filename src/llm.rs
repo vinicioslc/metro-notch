@@ -23,7 +23,7 @@ fn base() -> String {
 }
 
 fn model() -> String {
-    std::env::var("METRO_LLM_MODEL").unwrap_or_else(|_| "lfm3:1.7b".into())
+    std::env::var("METRO_LLM_MODEL").unwrap_or_else(|_| "lfm3-omni:latest".into())
 }
 
 fn ctx() -> u64 {
@@ -77,7 +77,8 @@ pub fn chat(messages: Value) -> Result<String, String> {
         "messages": messages,
         "stream": false,
         "think": false,
-        "options": { "num_ctx": ctx(), "num_gpu": gpu_layers(), "temperature": 0.4 },
+        "keep_alive": "30m",
+        "options": { "num_ctx": ctx(), "num_gpu": gpu_layers(), "temperature": 0.4, "num_predict": 180 },
     });
     let (code, text) = http(
         "POST",
@@ -94,6 +95,146 @@ pub fn chat(messages: Value) -> Result<String, String> {
         return Err(format!("resposta vazia: {}", head(&text, 300)));
     }
     Ok(reply)
+}
+
+/// Transcreve áudio com o modelo omni via endpoint OpenAI-compatível do Ollama.
+/// `format` é "wav", "webm", "ogg" etc.; webm/ogg são convertidos para wav com ffmpeg.
+pub fn transcribe(audio_b64: &str, format: &str) -> Result<String, String> {
+    let wav_b64 = normalize_audio(audio_b64, format)?;
+    let body = json!({
+        "model": model(),
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Transcreva este áudio fielmente em português. Responda apenas com a transcrição."},
+                {"type": "input_audio", "input_audio": {"data": wav_b64, "format": "wav"}}
+            ]
+        }],
+        "stream": false,
+        "max_tokens": 300,
+        "temperature": 0
+    });
+    let (code, text) = http(
+        "POST",
+        "/v1/chat/completions",
+        Some(&body.to_string()),
+        Duration::from_secs(240),
+    )?;
+    if code != 200 {
+        return Err(format!("LLM respondeu {}: {}", code, head(&text, 300)));
+    }
+    let v: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let reply = v["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if reply.is_empty() {
+        return Err(format!("resposta vazia: {}", head(&text, 300)));
+    }
+    Ok(reply)
+}
+
+fn normalize_audio(audio_b64: &str, format: &str) -> Result<String, String> {
+    let fmt = format.to_ascii_lowercase();
+    if fmt == "wav" || fmt.is_empty() {
+        return Ok(audio_b64.to_string());
+    }
+    let bytes = base64_decode(audio_b64)?;
+    let dir = std::env::temp_dir();
+    let stem = format!("metro-audio-{}", std::process::id());
+    let src = dir.join(format!("{}.{}", stem, if fmt == "webm" { "webm" } else { "ogg" }));
+    let dst = dir.join(format!("{}-out.wav", stem));
+    std::fs::write(&src, &bytes).map_err(|e| e.to_string())?;
+    let mut cmd = std::process::Command::new("ffmpeg");
+    cmd.args(["-y", "-i"])
+        .arg(&src)
+        .args(["-ac", "1", "-ar", "16000", "-f", "wav"])
+        .arg(&dst);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+    let out = cmd.output().map_err(|e| format!("ffmpeg: {}", e))?;
+    let _ = std::fs::remove_file(&src);
+    if !out.status.success() {
+        let _ = std::fs::remove_file(&dst);
+        return Err(format!("ffmpeg falhou: {}", head(&String::from_utf8_lossy(&out.stderr), 200)));
+    }
+    let wav = std::fs::read(&dst).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&dst);
+    Ok(base64_encode(&wav))
+}
+
+fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
+    let mut out = Vec::with_capacity(s.len() * 3 / 4);
+    let mut buf: u32 = 0;
+    let mut bits: u32 = 0;
+    for b in s.bytes() {
+        let val = match b {
+            b'A'..=b'Z' => (b - b'A') as u32,
+            b'a'..=b'z' => (b - b'a' + 26) as u32,
+            b'0'..=b'9' => (b - b'0' + 52) as u32,
+            b'+' => 62,
+            b'/' => 63,
+            b'=' | b'\n' | b'\r' | b' ' | b'\t' => continue,
+            _ => return Err("base64 inválido".into()),
+        };
+        buf = (buf << 6) | val;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push(((buf >> bits) & 0xFF) as u8);
+        }
+    }
+    Ok(out)
+}
+
+fn base64_encode(bytes: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
+    let mut i = 0;
+    while i + 2 < bytes.len() {
+        let n = ((bytes[i] as u32) << 16) | ((bytes[i + 1] as u32) << 8) | (bytes[i + 2] as u32);
+        out.push(T[((n >> 18) & 63) as usize] as char);
+        out.push(T[((n >> 12) & 63) as usize] as char);
+        out.push(T[((n >> 6) & 63) as usize] as char);
+        out.push(T[(n & 63) as usize] as char);
+        i += 3;
+    }
+    let rem = bytes.len() - i;
+    if rem == 1 {
+        let n = (bytes[i] as u32) << 16;
+        out.push(T[((n >> 18) & 63) as usize] as char);
+        out.push(T[((n >> 12) & 63) as usize] as char);
+        out.push('=');
+        out.push('=');
+    } else if rem == 2 {
+        let n = ((bytes[i] as u32) << 16) | ((bytes[i + 1] as u32) << 8);
+        out.push(T[((n >> 18) & 63) as usize] as char);
+        out.push(T[((n >> 12) & 63) as usize] as char);
+        out.push(T[((n >> 6) & 63) as usize] as char);
+        out.push('=');
+    }
+    out
+}
+
+/// Monta a conversa enviada ao modelo: sistema (+ texto da tela) e depois o
+/// histórico. A tela entra como system para não virar pedido do usuário.
+pub fn messages(mut msgs: Vec<Value>, screen: bool) -> Value {
+    let mut system = SYSTEM.to_string();
+    if screen {
+        if let Ok(text) = crate::screen::read(4000) {
+            if !text.trim().is_empty() {
+                system.push_str("\n\n--- conteúdo da tela agora ---\n");
+                system.push_str(&text);
+            }
+        }
+    }
+    let mut out = vec![json!({"role": "system", "content": system})];
+    out.append(&mut msgs);
+    Value::Array(out)
 }
 
 fn head(s: &str, n: usize) -> String {

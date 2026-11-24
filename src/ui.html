@@ -613,6 +613,59 @@ body {
   border-color: var(--border);
 }
 
+/* ---------- chat ---------- */
+.chat {
+  height: 348px;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 18%, transparent) transparent;
+}
+.chat-log::-webkit-scrollbar { width: 6px; }
+.chat-log::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text) 22%, transparent); }
+.chat-msg {
+  max-width: 86%;
+  padding: 6px 9px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+.chat-msg.me { align-self: flex-end; background: var(--border); color: var(--bg); }
+.chat-msg.bot {
+  align-self: flex-start;
+  background: var(--surface-2);
+  color: var(--text);
+  border-left: 3px solid var(--border);
+}
+.chat-msg.sys { align-self: center; color: var(--muted); font-size: 11px; text-align: center; }
+.chat-form { display: flex; align-items: center; gap: 6px; height: 34px; flex: none; }
+.chat-form input {
+  flex: 1;
+  height: 30px;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 12.5px;
+  outline: none;
+}
+.chat-form input:focus { border-color: var(--border); }
+#micBtn.rec { background: #e81123; color: #fff; border-color: #e81123; }
+#speakBtn.on { background: var(--border); color: var(--bg); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important;
@@ -642,6 +695,9 @@ body {
     <section class="sec open" data-view="open">
       <header class="head">
         <div class="head-title">Prioridades <span class="pill" id="pendingCount">0</span></div>
+        <button class="icon-btn" id="chatBtn" title="Chat com a tela">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.4-.7L3 21l1.8-5.3A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4z"/></svg>
+        </button>
         <button class="icon-btn" id="cog" title="Configurações">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -651,6 +707,25 @@ body {
         <input id="addInput" maxlength="200" placeholder="Nome da tarefa…" autocomplete="off">
         <textarea id="addDesc" rows="2" maxlength="250000" placeholder="Descrição (opcional, até 250 000 caracteres)…" autocomplete="off"></textarea>
         <button class="add-btn" type="submit" title="Adicionar">+</button>
+      </form>
+    </section>
+
+    <section class="sec chat" data-view="chat">
+      <header class="head">
+        <button class="icon-btn" id="chatBack" title="Voltar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="head-title">Chat</div>
+        <button class="ghost" id="chatScreen" title="Usar o texto da tela como contexto">tela: on</button>
+      </header>
+      <div class="chat-log" id="chatLog"></div>
+      <form class="chat-form" id="chatForm">
+        <button class="icon-btn" id="micBtn" type="button" title="Gravar áudio (lfm3-omni)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button class="icon-btn" id="speakBtn" type="button" title="Falar resposta (voz do sistema)">🔊</button>
+        <input id="chatInput" maxlength="2000" placeholder="Pergunte sobre a tela…" autocomplete="off">
+        <button class="add-btn" type="submit" title="Enviar">→</button>
       </form>
     </section>
 
@@ -1460,10 +1535,148 @@ addForm.addEventListener('submit', e => {
   addDesc.value = '';
 });
 
+// ---------- chat (LLM local + leitura de tela) ----------
+const chatLog = document.getElementById('chatLog');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+const chatScreenBtn = document.getElementById('chatScreen');
+let chatHistory = [];
+let chatUseScreen = true;
+let chatPending = false;
+let chatThinking = null;
+
+function chatBubble(text, cls) {
+  const el = document.createElement('div');
+  el.className = 'chat-msg ' + cls;
+  el.textContent = text;
+  chatLog.appendChild(el);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return el;
+}
+
+let speakOn = false;
+function speakText(text) {
+  if (!speakOn || !window.speechSynthesis || !text) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'pt-BR';
+  window.speechSynthesis.speak(u);
+}
+
+window.__chatReply = res => {
+  if (chatThinking) { chatThinking.remove(); chatThinking = null; }
+  chatPending = false;
+  if (res && res.reply) {
+    chatBubble(res.reply, 'bot');
+    chatHistory.push({ role: 'assistant', content: res.reply });
+    if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
+    speakText(res.reply);
+  } else {
+    chatBubble('Erro: ' + ((res && res.error) || 'sem resposta'), 'sys');
+  }
+};
+
+function chatSend(text) {
+  const q = (text || '').trim();
+  if (!q || chatPending) return;
+  chatBubble(q, 'me');
+  chatHistory.push({ role: 'user', content: q });
+  chatThinking = chatBubble('…', 'bot');
+  chatPending = true;
+  send({ t: 'chat', messages: chatHistory.slice(-8), screen: chatUseScreen });
+}
+
+chatForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const q = chatInput.value;
+  chatInput.value = '';
+  chatSend(q);
+});
+
+// ---------- gravação de áudio (lfm3-omni transcreve) ----------
+const micBtn = document.getElementById('micBtn');
+let mediaRec = null;
+let mediaChunks = [];
+let mediaStream = null;
+
+window.__transcribeReply = res => {
+  micBtn.classList.remove('rec');
+  micBtn.disabled = false;
+  if (res && res.text) {
+    const t = String(res.text).trim();
+    chatInput.value = t;
+    chatInput.focus();
+    chatBubble('[voz] ' + t, 'sys');
+  } else {
+    chatBubble('Erro voz: ' + ((res && res.error) || 'sem resposta'), 'sys');
+  }
+};
+
+async function toggleMic() {
+  if (mediaRec && mediaRec.state === 'recording') {
+    mediaRec.stop();
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    chatBubble('Gravação de áudio não disponível neste WebView.', 'sys');
+    return;
+  }
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    chatBubble('Microfone negado/indisponível: ' + e, 'sys');
+    return;
+  }
+  mediaChunks = [];
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+  try {
+    mediaRec = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : undefined);
+  } catch (e) {
+    chatBubble('MediaRecorder indisponível: ' + e, 'sys');
+    mediaStream.getTracks().forEach(t => t.stop());
+    return;
+  }
+  mediaRec.ondataavailable = e => { if (e.data && e.data.size) mediaChunks.push(e.data); };
+  mediaRec.onstop = async () => {
+    mediaStream.getTracks().forEach(t => t.stop());
+    micBtn.classList.remove('rec');
+    micBtn.disabled = true;
+    const blob = new Blob(mediaChunks, { type: mediaRec.mimeType || 'audio/webm' });
+    const buf = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    const b64 = btoa(bin);
+    const fmt = (mediaRec.mimeType || '').includes('ogg') ? 'ogg' : 'webm';
+    chatBubble('Transcrevendo áudio…', 'sys');
+    send({ t: 'transcribe', audio: b64, format: fmt });
+  };
+  mediaRec.start();
+  micBtn.classList.add('rec');
+}
+micBtn.addEventListener('click', toggleMic);
+speakBtn.addEventListener('click', () => {
+  speakOn = !speakOn;
+  speakBtn.classList.toggle('on', speakOn);
+  speakBtn.title = speakOn ? 'Falar resposta: ligado (voz do sistema)' : 'Falar resposta (voz do sistema)';
+  if (!speakOn && window.speechSynthesis) window.speechSynthesis.cancel();
+});
+
+chatScreenBtn.addEventListener('click', () => {
+  chatUseScreen = !chatUseScreen;
+  chatScreenBtn.textContent = 'tela: ' + (chatUseScreen ? 'on' : 'off');
+});
+
+document.getElementById('chatBtn').addEventListener('click', () => {
+  setView('chat');
+  setTimeout(() => chatInput.focus(), 250);
+});
+document.getElementById('chatBack').addEventListener('click', () => setView('open'));
+
 // ---------- keyboard ----------
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (state.view === 'settings') setView('open');
+    if (state.view === 'settings' || state.view === 'chat') setView('open');
     else if (state.view === 'open') setView('idle');
   }
 });

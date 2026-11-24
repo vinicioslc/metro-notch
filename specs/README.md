@@ -17,3 +17,4 @@ código para rastreio.
 | MN-01..MN-08 | [10-rename-metro-notch.md](10-rename-metro-notch.md) | implementado |
 | RF-19 | [2026-11-22-sorting-order.md](2026-11-22-sorting-order.md) | implementado |
 | ED-01 | [2026-11-22-task-editing.md](2026-11-22-task-editing.md) | implementado |
+| SC-01..SC-04, LC-01..LC-05 | [09-llm-chat-and-screen.md](09-llm-chat-and-screen.md) | implementado |
