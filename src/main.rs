@@ -119,6 +119,8 @@ fn tint(bg: Option<&str>) -> u32 {
 #[link(name = "gdi32")]
 extern "system" {
     fn CreateRectRgn(l: i32, t: i32, r: i32, b: i32) -> *mut std::ffi::c_void;
+    fn CreateRoundRectRgn(l: i32, t: i32, r: i32, b: i32, w: i32, h: i32) -> *mut std::ffi::c_void;
+    fn CombineRgn(dst: *mut std::ffi::c_void, src1: *mut std::ffi::c_void, src2: *mut std::ffi::c_void, mode: i32) -> i32;
     fn DeleteObject(o: *mut std::ffi::c_void) -> i32;
 }
 
@@ -205,9 +207,18 @@ pub fn state_path() -> PathBuf {
 fn shape_window(hwnd: Hwnd, w: i32, h: i32, scale: f64) {
     let pw = (w as f64 * scale).round() as i32;
     let ph = (h as f64 * scale).round() as i32;
-    // Metro: square window, no rounded corners.
+    // macOS-like rounded bottom corners.
+    let r = if ph <= 12 { 8 } else { 18 };
+    let pr = (r as f64 * scale).round() as i32;
     unsafe {
-        SetWindowRgn(hwnd, CreateRectRgn(0, 0, pw, ph), 1);
+        let top = CreateRectRgn(0, 0, pw, pr);
+        let round = CreateRoundRectRgn(0, 0, pw, ph, pr * 2, pr * 2);
+        let combined = CreateRectRgn(0, 0, 0, 0);
+        const RGN_OR: i32 = 2;
+        CombineRgn(combined, top, round, RGN_OR);
+        DeleteObject(top);
+        DeleteObject(round);
+        SetWindowRgn(hwnd, combined, 1);
     }
 }
 
@@ -373,8 +384,8 @@ fn main() -> wry::Result<()> {
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
         .filter(|v| v.is_object())
         .unwrap_or_else(|| serde_json::json!({
-            "interval": 15, "unit": "m", "theme": "metro",
-            "border": "#1ba1e2", "bg": "#000000", "text": "#ffffff",
+            "interval": 15, "unit": "m", "theme": "macos",
+            "border": "#0a84ff", "bg": "#1e1e1e", "text": "#f5f5f7",
             "sort": "last-added", "alertSeconds": 8,
             "quietStart": "", "quietEnd": "", "autostart": false, "idleVisibleHeight": 5,
             "tasks": [
