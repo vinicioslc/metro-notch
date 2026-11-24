@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metro Notch</title>
+<style>
+:root {
+  --border: #1ba1e2;
+  --bg: #000000;
+  --text: #ffffff;
+  --border-soft: color-mix(in srgb, var(--border) 34%, transparent);
+  --muted: color-mix(in srgb, var(--text) 56%, transparent);
+  --surface: color-mix(in srgb, var(--text) 6%, transparent);
+  --surface-2: color-mix(in srgb, var(--text) 10%, transparent);
+  --radius: 0px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: transparent; }
+body {
+  font-family: "Segoe UI", "Segoe UI Variable Text", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+}
+
+#stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 0;
+}
+
+#notch {
+  position: relative;
+  flex: none;
+  width: 560px;
+  height: 5px;
+  border-radius: 0;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  background: var(--bg);
+  box-shadow: none;
+  overflow: hidden;
+  transition: width .45s cubic-bezier(.16,1,.3,1), height .45s cubic-bezier(.16,1,.3,1), border-color .24s ease, background .24s ease;
+  will-change: width, height;
+}
+
+.state-alert #notch,
+.state-open #notch,
+.state-settings #notch {
+  border-radius: 0;
+}
+
+#notch:hover,
+.state-alert #notch {
+  border-color: var(--border);
+}
+
+.sec {
+  position: absolute;
+  width: 560px;
+  left: 50%;
+  margin-left: -280px;
+  top: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .22s ease, transform .32s cubic-bezier(.22,1,.36,1), visibility 0s linear .22s;
+  transform: translateY(-4px);
+  z-index: 2;
+  overflow: hidden;
+}
+.sec.on {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition: opacity .22s ease, transform .32s cubic-bezier(.22,1,.36,1), visibility 0s;
+}
+
+/* ---------- idle ---------- */
+.idle {
+  height: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.trace {
+  display: block;
+  width: 120px;
+  height: 2px;
+  border-radius: 0;
+  background: var(--border);
+}
+
+/* ---------- alert ---------- */
+.state-alert .alert { cursor: default; }
+.alert {
+  padding: 6px 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 40px;
+}
+.alert-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+}
+.alert-check {
+  width: 26px; height: 26px;
+  border-radius: 0;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background .12s linear, color .12s linear;
+}
+.alert-check:hover {
+  background: var(--border);
+  color: var(--bg);
+}
+.alert-check:active { background: color-mix(in srgb, var(--border) 80%, var(--text)); }
+.alert-check svg { width: 14px; height: 14px; }
+.alert-count {
+  min-width: 24px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 0;
+  background: var(--border);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.marquee {
+  flex: 1;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-width: 0;
+  mask-image: linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+}
+.marquee-inner {
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--text);
+  padding: 0 4px;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.22,1,.36,1);
+}
+.marquee-inner.slide-out { opacity: 0; transform: translateX(-22px); }
+.marquee-inner.slide-in { opacity: 0; transform: translateX(22px); transition: none; }
+.marquee-inner.slide-in-active { opacity: 1; transform: translateX(0); }
+
+.progress {
+  height: 2px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 0;
+  overflow: hidden;
+}
+.progress span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--border);
+  border-radius: 0;
+  animation: drain 8s linear forwards;
+}
+@keyframes drain {
+  from { transform: scaleX(1); transform-origin: left; }
+  to { transform: scaleX(0); transform-origin: left; }
+}
+
+/* ---------- open / list ---------- */
+.open {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+}
+.head-title {
+  flex: 1;
+  font-family: "Segoe UI Light", "Segoe UI", sans-serif;
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: .02em;
+  text-transform: lowercase;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 0;
+  background: var(--border);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.icon-btn {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .12s linear, color .12s linear;
+  padding: 0;
+}
+.icon-btn:hover {
+  background: var(--border);
+  color: var(--bg);
+  border-color: transparent;
+}
+.icon-btn:active { background: color-mix(in srgb, var(--border) 80%, var(--text)); }
+.icon-btn svg { width: 14px; height: 14px; }
+#cog svg { transition: none; }
+
+.ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--border);
+  border-radius: 0;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .12s linear, color .12s linear;
+}
+.ghost:hover {
+  background: var(--border);
+  color: var(--bg);
+}
+.ghost:active { background: color-mix(in srgb, var(--border) 80%, var(--text)); }
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 18%, transparent) transparent;
+}
+.list::-webkit-scrollbar { width: 6px; }
+.list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+  border-radius: 0;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 6px 0 8px;
+  border-radius: 0;
+  background: transparent;
+  transition: background .12s linear;
+  animation: rowIn .32s cubic-bezier(.22,1,.36,1) both;
+  position: relative;
+}
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.row.dragging { z-index: 5; background: var(--bg); border-left: 2px solid var(--border); opacity: .9; }
+.row:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.row.done .txt { opacity: .42; text-decoration: line-through; text-decoration-color: var(--border); }
+.row.removing { animation: rowOut .18s ease forwards; pointer-events: none; }
+@keyframes rowOut { to { opacity: 0; transform: translateX(18px); height: 0; margin: 0; padding-top: 0; padding-bottom: 0; } }
+
+.grip {
+  width: 12px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: grab;
+  color: color-mix(in srgb, var(--text) 26%, transparent);
+  border: none; background: none; padding: 0;
+  touch-action: none;
+}
+.grip:active { cursor: grabbing; }
+.grip svg { width: 10px; height: 12px; }
+
+.check {
+  width: 18px; height: 18px;
+  border-radius: 0;
+  border: 1px solid var(--border);
+  background: transparent;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background .12s linear, color .12s linear;
+  padding: 0;
+  color: var(--bg);
+  flex-shrink: 0;
+}
+.check:hover { background: color-mix(in srgb, var(--border) 25%, transparent); }
+.check svg { width: 11px; height: 11px; stroke-dasharray: 20; stroke-dashoffset: 20; transition: stroke-dashoffset .2s ease .03s; }
+.check[aria-pressed="true"] {
+  background: var(--border);
+  border-color: var(--border);
+}
+.check[aria-pressed="true"] svg { stroke-dashoffset: 0; }
+
+.txt {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 450;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  cursor: pointer;
+  transition: color .15s ease;
+}
+.txt:hover { color: var(--border); }
+
+.del {
+  width: 18px; height: 18px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(4px);
+  transition: opacity .12s linear, transform .12s linear, background .12s linear, color .12s linear;
+  padding: 0;
+}
+.row:hover .del { opacity: 1; transform: translateX(0); }
+.del:hover { background: color-mix(in srgb, #ff5f5f 18%, transparent); color: #ff7b7b; }
+
+.add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+}
+.add input {
+  flex: 1;
+  height: 30px;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color .12s linear, background .12s linear;
+  caret-color: var(--border);
+}
+.add input::placeholder { color: var(--muted); }
+.add input:focus {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+.add-btn {
+  width: 30px; height: 30px;
+  border-radius: 0;
+  border: 1px solid var(--border);
+  background: var(--border);
+  color: var(--bg);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .12s linear, color .12s linear;
+  padding: 0;
+}
+.add-btn:hover {
+  background: color-mix(in srgb, var(--border) 80%, var(--text));
+}
+.add-btn:active { background: var(--border); }
+.add textarea {
+  width: 100%;
+  min-height: 40px;
+  max-height: 120px;
+  resize: vertical;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .12s linear, background .12s linear;
+}
+.add textarea:focus {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+/* ---------- settings ---------- */
+.settings {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.field label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hint {
+  font-size: 10px;
+  color: var(--border);
+  opacity: .9;
+}
+.interval {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.interval input[type="number"] {
+  width: 64px;
+  height: 30px;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  text-align: center;
+  transition: border-color .12s linear;
+}
+.interval input:focus {
+  border-color: var(--border);
+}
+.seg {
+  display: inline-flex;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  border-radius: 0;
+  padding: 0;
+  gap: 0;
+}
+.seg button {
+  height: 28px;
+  min-width: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s linear, color .12s linear;
+}
+.seg button + button { border-left: 1px solid color-mix(in srgb, var(--text) 24%, transparent); }
+.seg button.on {
+  background: var(--border);
+  color: var(--bg);
+}
+
+.themes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.theme {
+  height: 36px;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  cursor: pointer;
+  transition: border-color .12s linear, background .12s linear;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.theme:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
+.theme.on {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--border) 18%, transparent);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.theme .dots { display: inline-flex; gap: 0; }
+.theme .dots i {
+  width: 8px; height: 8px; border-radius: 0;
+  display: inline-block;
+  border: none;
+}
+
+.colors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.color-row input[type="color"] {
+  width: 26px; height: 26px;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 30%, transparent);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.color-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.color-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 0; }
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+#alertSeconds,
+.time-row input[type="time"] {
+  height: 30px;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .12s linear;
+}
+#alertSeconds { width: 72px; text-align: center; font-weight: 600; }
+.time-row { display: flex; align-items: center; gap: 8px; }
+.time-row input[type="time"] { flex: 1; }
+#alertSeconds:focus,
+.time-row input[type="time"]:focus {
+  border-color: var(--border);
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.toggle-row input[type="checkbox"] {
+  width: 16px; height: 16px;
+  accent-color: var(--border);
+  cursor: pointer;
+}
+
+#sortSelect {
+  width: 100%;
+  height: 30px;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color .12s linear;
+}
+#sortSelect:focus {
+  border-color: var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+</style>
+</head>
+<body>
+<div id="stage" class="state-idle">
+  <div id="notch">
+    <section class="sec idle on" data-view="idle">
+      <span class="trace"></span>
+    </section>
+
+    <section class="sec alert" data-view="alert">
+      <div class="alert-row">
+        <button class="alert-check" id="alertCheck" title="Finalizar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+        </button>
+        <div class="marquee"><span class="marquee-inner" id="marqueeText"></span></div>
+        <span class="alert-count" id="alertCount">0</span>
+      </div>
+      <div class="progress"><span id="progressBar"></span></div>
+    </section>
+
+    <section class="sec open" data-view="open">
+      <header class="head">
+        <div class="head-title">Prioridades <span class="pill" id="pendingCount">0</span></div>
+        <button class="icon-btn" id="cog" title="Configurações">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </header>
+      <div class="list" id="list"></div>
+      <form class="add" id="addForm">
+        <input id="addInput" maxlength="200" placeholder="Nome da tarefa…" autocomplete="off">
+        <textarea id="addDesc" rows="2" maxlength="250000" placeholder="Descrição (opcional, até 250 000 caracteres)…" autocomplete="off"></textarea>
+        <button class="add-btn" type="submit" title="Adicionar">+</button>
+      </form>
+    </section>
+
+    <section class="sec settings" data-view="settings">
+      <header class="head">
+        <button class="icon-btn" id="back" title="Voltar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="head-title">Configurações</div>
+        <button class="ghost" id="quit">Sair</button>
+      </header>
+
+      <div class="field">
+        <div class="field-row">
+          <label for="interval">Intervalo entre alertas</label>
+          <span class="hint" id="nextHint">—</span>
+        </div>
+        <div class="interval">
+          <input id="interval" type="number" min="1" max="999" step="1" inputmode="numeric">
+          <div class="seg" id="unitSeg">
+            <button data-unit="m" class="on">min</button>
+            <button data-unit="h">h</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-row">
+          <label for="alertSeconds">Duração do alerta (s)</label>
+        </div>
+        <input id="alertSeconds" type="number" min="1" max="60" step="1" inputmode="numeric">
+      </div>
+
+      <div class="field">
+        <div class="field-row">
+          <label for="idleVisibleHeight">Altura visível no idle (px)</label>
+        </div>
+        <input id="idleVisibleHeight" type="number" min="1" max="30" step="1" inputmode="numeric">
+      </div>
+
+      <div class="field">
+        <div class="field-row">
+          <label>Silenciar entre</label>
+          <span class="hint" id="quietHint">desligado</span>
+        </div>
+        <div class="time-row">
+          <input id="quietStart" type="time">
+          <span class="hint">→</span>
+          <input id="quietEnd" type="time">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="toggle-row">
+          <span>Iniciar com o Windows</span>
+          <input id="autostart" type="checkbox">
+        </label>
+      </div>
+
+      <div class="field">
+        <label>Ordenar tarefas</label>
+        <select id="sortSelect">
+          <option value="last-added">Último adicionado primeiro</option>
+          <option value="oldest">Mais antigo primeiro</option>
+          <option value="newest">Mais recente primeiro</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Tema</label>
+        <div class="themes" id="themes"></div>
+      </div>
+
+      <div class="field">
+        <label>Cores personalizadas</label>
+        <div class="colors">
+          <label class="color-row">Borda <input type="color" id="cBorder"></label>
+          <label class="color-row">Fundo <input type="color" id="cBg"></label>
+          <label class="color-row">Texto <input type="color" id="cText"></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-row">
+          <label>MCP / HTTP</label>
+          <span class="hint" id="mcpHint">127.0.0.1:7878</span>
+        </div>
+        <input id="mcpUrl" type="text" readonly style="width:100%;height:30px;border-radius:0;border:1px solid color-mix(in srgb,var(--text) 24%,transparent);background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text);padding:0 8px;font-size:11px;outline:none;">
+      </div>
+
+      <footer class="foot">
+        <button class="ghost" id="reset">Restaurar padrão</button>
+      </footer>
+    </section>
+  </div>
+</div>
+
+<script>
+const THEMES = {
+  metro:     { name: 'Metro',       border: '#1ba1e2', bg: '#000000', text: '#ffffff' },
+  nord:      { name: 'Nord',        border: '#88c0d0', bg: '#2e3440', text: '#eceff4' },
+  monokai:   { name: 'Monokai',    border: '#a6e22e', bg: '#272822', text: '#f8f8f2' },
+  cobalt:    { name: 'Cobalt',     border: '#ffc600', bg: '#193549', text: '#ffffff' },
+  'github-dark':  { name: 'GitHub Dark',  border: '#58a6ff', bg: '#0d1117', text: '#e6edf3' },
+  'github-light': { name: 'GitHub Light', border: '#0969da', bg: '#ffffff', text: '#1f2328' },
+};
+
+const DEFAULTS = {
+  interval: 15, unit: 'm',
+  theme: 'metro',
+  border: '#1ba1e2', bg: '#000000', text: '#ffffff',
+  sort: 'last-added',
+  alertSeconds: 8,
+  quietStart: '',
+  quietEnd: '',
+  autostart: false,
+  idleVisibleHeight: 5,
+  metroMigrated: false,
+  tasks: [
+    { id: 1, name: 'Revisar pull requests', description: '', done: false },
+    { id: 2, name: 'Responder e-mails pendentes', description: '', done: false },
+    { id: 3, name: 'Planejar as prioridades do dia', description: '', done: false },
+  ],
+};
+
+const state = {
+  view: 'idle',
+  S: JSON.parse(JSON.stringify(DEFAULTS)),
+  lastId: null,
+  drag: null,
+  hoverTimer: null,
+  hovering: false,
+};
+
+const notch = document.getElementById('notch');
+const stage = document.getElementById('stage');
+const listEl = document.getElementById('list');
+const themesEl = document.getElementById('themes');
+const marqueeText = document.getElementById('marqueeText');
+const progressBar = document.getElementById('progressBar');
+const alertCountEl = document.getElementById('alertCount');
+const alertCheck = document.getElementById('alertCheck');
+const pendingCountEl = document.getElementById('pendingCount');
+const addForm = document.getElementById('addForm');
+const addInput = document.getElementById('addInput');
+const alertSecondsInput = document.getElementById('alertSeconds');
+const idleVisibleHeightInput = document.getElementById('idleVisibleHeight');
+const quietStartInput = document.getElementById('quietStart');
+const quietEndInput = document.getElementById('quietEnd');
+const autostartInput = document.getElementById('autostart');
+const quietHint = document.getElementById('quietHint');
+const mcpUrl = document.getElementById('mcpUrl');
+const mcpHint = document.getElementById('mcpHint');
+const intervalInput = document.getElementById('interval');
+const unitSeg = document.getElementById('unitSeg');
+const sortSelect = document.getElementById('sortSelect');
+const cBorder = document.getElementById('cBorder');
+const cBg = document.getElementById('cBg');
+const cText = document.getElementById('cText');
+const nextHint = document.getElementById('nextHint');
+
+let nextAlertAt = 0;
+let alertTimer = null;
+let hideTimer = null;
+
+function send(msg) { try { window.ipc.postMessage(JSON.stringify(msg)); } catch (e) {} }
+
+function applyPalette() {
+  const s = state.S;
+  const root = document.documentElement;
+  root.style.setProperty('--border', s.border);
+  root.style.setProperty('--bg', s.bg);
+  root.style.setProperty('--text', s.text);
+}
+
+function setTheme(key) {
+  const s = state.S;
+  const t = THEMES[key];
+  if (!t) return;
+  s.theme = key;
+  s.border = t.border; s.bg = t.bg; s.text = t.text;
+  applyPalette();
+  cBorder.value = s.border; cBg.value = s.bg; cText.value = s.text;
+  renderThemes();
+  save();
+}
+
+function renderThemes() {
+  const s = state.S;
+  themesEl.innerHTML = '';
+  Object.entries(THEMES).forEach(([key, t]) => {
+    const b = document.createElement('button');
+    b.className = 'theme' + (s.theme === key ? ' on' : '');
+    b.innerHTML = `<span class="dots"><i style="background:${t.bg}"></i><i style="background:${t.border}"></i><i style="background:${t.text}"></i></span><span class="tname">${t.name}</span>`;
+    b.addEventListener('click', () => setTheme(key));
+    themesEl.appendChild(b);
+  });
+}
+
+function save() {
+  send({ t: 'save', data: state.S });
+}
+
+function normalizeSort(v) {
+  return (v === 'oldest' || v === 'newest') ? v : 'last-added';
+}
+function sortTasks(tasks, mode) {
+  const m = normalizeSort(mode);
+  const arr = tasks.slice();
+  if (m === 'oldest') arr.sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+  else arr.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+  return arr;
+}
+function loadState(data) {
+  if (data && typeof data === 'object') {
+    state.S = { ...JSON.parse(JSON.stringify(DEFAULTS)), ...data };
+    if (!Array.isArray(state.S.tasks)) state.S.tasks = DEFAULTS.tasks.map(t => ({...t}));
+    state.S.tasks = state.S.tasks.map(t => ({
+      id: t.id,
+      name: String(t.name ?? t.text ?? '').slice(0, 200),
+      description: String(t.description ?? '').slice(0, 250000),
+      done: !!t.done,
+      createdAt: t.createdAt ?? (typeof t.id === 'number' ? t.id : Date.now()),
+      updatedAt: t.updatedAt ?? (typeof t.id === 'number' ? t.id : Date.now()),
+    }));
+    state.S.sort = normalizeSort(state.S.sort);
+    state.S.tasks = sortTasks(state.S.tasks, state.S.sort);
+    // rebrand: adopt the Metro palette once, preserving tasks
+    if (!state.S.metroMigrated) {
+      state.S.theme = 'metro';
+      state.S.border = THEMES.metro.border;
+      state.S.bg = THEMES.metro.bg;
+      state.S.text = THEMES.metro.text;
+      state.S.metroMigrated = true;
+      save();
+    }
+    if (!THEMES[state.S.theme]) state.S.theme = 'custom';
+  }
+  applyPalette();
+  cBorder.value = state.S.border;
+  cBg.value = state.S.bg;
+  cText.value = state.S.text;
+  intervalInput.value = state.S.interval;
+  unitSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.unit === state.S.unit));
+  alertSecondsInput.value = state.S.alertSeconds;
+  idleVisibleHeightInput.value = state.S.idleVisibleHeight ?? 5;
+  quietStartInput.value = state.S.quietStart;
+  quietEndInput.value = state.S.quietEnd;
+  autostartInput.checked = !!state.S.autostart;
+  updateQuietHint();
+  if (sortSelect) sortSelect.value = state.S.sort;
+  renderThemes();
+  renderList();
+  scheduleNext();
+  updateMcpInfo();
+  send({ t: 'idleHeight', h: Math.max(1, Math.min(30, +state.S.idleVisibleHeight || 5)) });
+}
+
+window.__load = (data) => loadState(data);
+
+function renderList() {
+  const tasks = state.S.tasks;
+  listEl.innerHTML = '';
+  tasks.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'row' + (t.done ? ' done' : '');
+    row.style.animationDelay = (i * 26) + 'ms';
+    row.style.transition = 'transform .18s cubic-bezier(.22,1,.36,1)';
+    row.dataset.id = t.id;
+
+    const grip = document.createElement('button');
+    grip.className = 'grip';
+    grip.title = 'Arrastar';
+    grip.innerHTML = '<svg viewBox="0 0 10 12" fill="currentColor"><circle cx="2" cy="1" r="1.2"/><circle cx="8" cy="1" r="1.2"/><circle cx="2" cy="6" r="1.2"/><circle cx="8" cy="6" r="1.2"/><circle cx="2" cy="11" r="1.2"/><circle cx="8" cy="11" r="1.2"/></svg>';
+
+    const check = document.createElement('button');
+    check.className = 'check';
+    check.setAttribute('aria-pressed', t.done ? 'true' : 'false');
+    check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+    check.addEventListener('click', e => { e.stopPropagation(); toggleDone(t.id); });
+
+    const txt = document.createElement('span');
+    txt.className = 'txt';
+    txt.textContent = t.name || t.text || '';
+    if (t.description) { txt.title = t.description; }
+    txt.addEventListener('click', e => { e.stopPropagation(); startEdit(t.id, txt); });
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.title = 'Remover';
+    del.textContent = '×';
+    del.addEventListener('click', e => { e.stopPropagation(); removeTask(t.id); });
+
+    row.append(grip, check, txt, del);
+    listEl.appendChild(row);
+
+    // drag
+    grip.addEventListener('pointerdown', e => startDrag(e, row, i));
+  });
+  const pending = tasks.filter(t => !t.done).length;
+  pendingCountEl.textContent = pending;
+  if (alertCountEl) alertCountEl.textContent = String(pending);
+  if (state.view === 'open' || state.view === 'settings') resizeToContent();
+}
+
+function toggleDone(id) {
+  const t = state.S.tasks.find(t => t.id === id);
+  if (!t) return;
+  t.done = !t.done;
+  t.updatedAt = Date.now();
+  save();
+  renderList();
+}
+
+function removeTask(id) {
+  const row = [...listEl.children].find(r => Number(r.dataset.id) === id);
+  if (row) {
+    row.classList.add('removing');
+    setTimeout(() => {
+      state.S.tasks = state.S.tasks.filter(t => t.id !== id);
+      save();
+      renderList();
+    }, 180);
+  } else {
+    state.S.tasks = state.S.tasks.filter(t => t.id !== id);
+    save();
+    renderList();
+  }
+}
+
+function addTask(name, description) {
+  const n = (name || '').trim().slice(0, 200);
+  if (!n) return;
+  const d = (description || '').trim().slice(0, 250000);
+  const id = Date.now();
+  const task = { id, name: n, description: d, done: false, createdAt: id, updatedAt: id };
+  const mode = normalizeSort(state.S.sort);
+  if (mode === 'oldest') state.S.tasks.push(task);
+  else state.S.tasks.unshift(task);
+  save();
+  renderList();
+}
+
+function startEdit(id, txtEl) {
+  const t = state.S.tasks.find(x => x.id === id);
+  if (!t) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = t.name || '';
+  input.style.width = '100%';
+  input.style.height = '24px';
+  input.style.borderRadius = '6px';
+  input.style.border = '1px solid color-mix(in srgb, var(--border) 45%, transparent)';
+  input.style.background = 'color-mix(in srgb, var(--text) 8%, transparent)';
+  input.style.color = 'var(--text)';
+  input.style.padding = '0 6px';
+  input.style.fontSize = '13px';
+  input.style.outline = 'none';
+  txtEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (persist) => {
+    if (done) return;
+    done = true;
+    if (persist) {
+      const n = input.value.trim().slice(0, 200);
+      if (n) { t.name = n; t.updatedAt = Date.now(); }
+      save();
+    }
+    renderList();
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+// ---------- drag ----------
+function startDrag(e, row, index) {
+  const rows = [...listEl.children];
+  const drag = { row, startY: e.clientY, index, rows, target: index };
+  state.drag = drag;
+  row.classList.add('dragging');
+  row.style.transition = 'none';
+  try { row.setPointerCapture(e.pointerId); } catch (_) {}
+  e.preventDefault();
+
+  const onMove = ev => {
+    if (!state.drag) return;
+    const dy = ev.clientY - state.drag.startY;
+    state.drag.row.style.transform = `translateY(${dy}px)`;
+    const h = state.drag.row.offsetHeight + 2;
+    const target = Math.max(0, Math.min(state.drag.rows.length - 1, state.drag.index + Math.round(dy / h)));
+    state.drag.target = target;
+    state.drag.rows.forEach((r, i) => {
+      if (r === state.drag.row) return;
+      let shift = 0;
+      if (i > state.drag.index && i <= target) shift = -h;
+      else if (i < state.drag.index && i >= target) shift = h;
+      r.style.transform = shift ? `translateY(${shift}px)` : '';
+      r.style.transition = 'transform .18s cubic-bezier(.22,1,.36,1)';
+    });
+  };
+  const onUp = () => {
+    if (!state.drag) return;
+    const { index: from, target: to, row, rows } = state.drag;
+    rows.forEach(r => { r.style.transform = ''; r.style.transition = ''; });
+    row.classList.remove('dragging');
+    row.style.transition = '';
+    if (to !== from) {
+      const [item] = state.S.tasks.splice(from, 1);
+      state.S.tasks.splice(to, 0, item);
+      save();
+    }
+    state.drag = null;
+    renderList();
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+  };
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
+}
+
+// ---------- view switching ----------
+function targetSize(v) {
+  const idleH = Math.max(1, Math.min(30, +state.S.idleVisibleHeight || 5));
+  if (v === 'idle') return [560, idleH];
+  if (v === 'alert') return [560, 40];
+  const sec = document.querySelector(`.sec[data-view="${v}"]`);
+  return [560, (sec ? sec.offsetHeight : 200) + 2];
+}
+
+function setView(v) {
+  if (state.view === v) return;
+  state.view = v;
+  const from = [notch.offsetWidth, notch.offsetHeight];
+  const [w, h] = targetSize(v);
+  stage.className = 'state-' + v;
+  document.querySelectorAll('.sec').forEach(el => {
+    el.classList.toggle('on', el.dataset.view === v);
+  });
+  notch.style.width = w + 'px';
+  notch.style.height = h + 'px';
+  trackSize(from, [w, h], 450);
+}
+
+// Window size is interpolated from the width transition's own progress: a
+// getBoundingClientRect() read lags the animated value and leaves a glass band
+// behind the panel.
+let sizeRaf = 0;
+function trackSize(from, to, ms) {
+  cancelAnimationFrame(sizeRaf);
+  void notch.offsetWidth; // force the transition to exist before the first frame
+  const t0 = performance.now();
+  const step = t => {
+    const anim = notch.getAnimations().find(a => a.transitionProperty === 'height');
+    const p = anim?.effect?.getComputedTiming().progress ?? 1;
+    send({
+      t: 'size',
+      w: Math.ceil(from[0] + (to[0] - from[0]) * p),
+      h: Math.ceil(from[1] + (to[1] - from[1]) * p),
+    });
+    if (t - t0 < ms) sizeRaf = requestAnimationFrame(step);
+  };
+  sizeRaf = requestAnimationFrame(step);
+}
+
+function resizeToContent() {
+  if (state.view !== 'open' && state.view !== 'settings') return;
+  const from = [notch.offsetWidth, notch.offsetHeight];
+  const [w, h] = targetSize(state.view);
+  notch.style.width = w + 'px';
+  notch.style.height = h + 'px';
+  trackSize(from, [w, h], 260);
+}
+
+// ---------- hover ----------
+// Barra escondida: passar o mouse abre o mesmo modo do alerta. A lista completa
+// só abre ao clicar na tarefa (ver listener do .alert).
+notch.addEventListener('pointerenter', () => {
+  state.hovering = true;
+  if (state.hoverTimer) clearTimeout(state.hoverTimer);
+  state.hoverTimer = setTimeout(() => {
+    if (!state.hovering || state.view !== 'idle') return;
+    const hasPending = state.S.tasks.some(t => !t.done);
+    if (hasPending) hoverAlert();
+    else setView('open');
+  }, 1000);
+});
+
+notch.addEventListener('click', (e) => {
+  if (state.view !== 'idle') return;
+  if (state.hoverTimer) { clearTimeout(state.hoverTimer); state.hoverTimer = null; }
+  const hasPending = state.S.tasks.some(t => !t.done);
+  if (hasPending) hoverAlert();
+  else setView('open');
+});
+notch.addEventListener('pointerleave', () => {
+  state.hovering = false;
+  // cancel pending hover-expand timer
+  if (state.view === 'idle' && state.hoverTimer) { clearTimeout(state.hoverTimer); state.hoverTimer = null; }
+  if (state.view === 'idle') return;
+  // faixa compacta: esconde com tolerância mínima de 1s
+  if (state.view === 'alert') {
+    if (state.hoverTimer) clearTimeout(state.hoverTimer);
+    state.hoverTimer = setTimeout(() => {
+      if (!state.hovering) setView('idle');
+    }, 1000);
+    return;
+  }
+  // expandida: 2s de tolerância antes de recolher
+  if (state.hoverTimer) clearTimeout(state.hoverTimer);
+  state.hoverTimer = setTimeout(() => {
+    // a focused field (interval box, colour picker) keeps the panel open
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    setView('idle');
+  }, 2000);
+});
+
+// clique em outro app / desktop tira o foco: recolhe na hora para a faixa compacta
+window.addEventListener('blur', () => {
+  if (state.view !== 'open' && state.view !== 'settings') return;
+  if (state.hoverTimer) { clearTimeout(state.hoverTimer); state.hoverTimer = null; }
+  const task = alertTask();
+  if (task) showAlert(task); else setView('idle');
+});
+
+// leaving a field re-arms the hide, so a focused input can't wedge the panel open
+document.addEventListener('focusout', () => {
+  if (state.hovering || state.view === 'idle') return;
+  if (state.hoverTimer) clearTimeout(state.hoverTimer);
+  state.hoverTimer = setTimeout(() => setView('idle'), 2000);
+});
+
+// final size once the width/height transition really finished
+notch.addEventListener('transitionend', e => {
+  if (e.target !== notch) return;
+  if (e.propertyName !== 'width' && e.propertyName !== 'height') return;
+  const r = notch.getBoundingClientRect();
+  send({ t: 'size', w: Math.ceil(r.width), h: Math.ceil(r.height) });
+});
+
+document.querySelector('.alert').addEventListener('click', (e) => {
+  if (state.view === 'alert' && !e.target.closest('#alertCheck')) setView('open');
+});
+
+alertCheck.addEventListener('click', (e) => {
+  e.stopPropagation();
+  completeAlertTask();
+});
+
+// ---------- alert ----------
+function intervalMs() {
+  const v = Math.max(1, +state.S.interval || 1);
+  return v * (state.S.unit === 'h' ? 3600000 : 60000);
+}
+
+function scheduleNext() {
+  if (alertTimer) clearTimeout(alertTimer);
+  const ms = intervalMs();
+  nextAlertAt = Date.now() + ms;
+  alertTimer = setTimeout(fireAlert, ms);
+  updateNextHint();
+}
+
+function fireAlert() {
+  if (state.view === 'settings') { scheduleNext(); return; }
+  if (inQuietHours()) { scheduleNext(); return; }
+  const pending = state.S.tasks.filter(t => !t.done);
+  if (!pending.length) { scheduleNext(); return; }
+  let idx = pending.findIndex(t => t.id === state.lastId);
+  idx = (idx + 1) % pending.length;
+  state.lastId = pending[idx].id;
+  showAlert(pending[idx]);
+  scheduleNext();
+}
+
+function inQuietHours() {
+  const a = state.S.quietStart, b = state.S.quietEnd;
+  if (!a || !b) return false;
+  const now = new Date();
+  const cur = now.getHours()*60 + now.getMinutes();
+  const [sh,sm] = a.split(':').map(Number);
+  const [eh,em] = b.split(':').map(Number);
+  const start = sh*60+sm, end = eh*60+em;
+  if (start === end) return false;
+  if (start < end) return cur >= start && cur < end;
+  return cur >= start || cur < end; // crosses midnight
+}
+
+// Tarefa exibida agora: a do último alerta, ou a primeira pendente.
+function alertTask() {
+  const pending = state.S.tasks.filter(t => !t.done);
+  if (!pending.length) return null;
+  return pending.find(t => t.id === state.lastId) || pending[0];
+}
+
+// Alerta por hover: mesmo visual do alerta automático, sem reagendar nada.
+function hoverAlert() {
+  const task = alertTask();
+  if (!task) return;
+  state.lastId = task.id;
+  showAlert(task);
+}
+
+function showAlert(task, opts = {}) {
+  const from = [notch.offsetWidth, notch.offsetHeight];
+  state.view = 'alert';
+  stage.className = 'state-alert';
+  document.querySelectorAll('.sec').forEach(el => el.classList.toggle('on', el.dataset.view === 'alert'));
+  notch.style.width = '560px';
+  notch.style.height = '40px';
+  trackSize(from, [560, 40], 450);
+
+  const text = task.name || task.text || '';
+  if (opts.slideIn) {
+    marqueeText.classList.add('slide-in');
+    marqueeText.textContent = text;
+    requestAnimationFrame(() => {
+      marqueeText.classList.add('slide-in-active');
+      marqueeText.classList.remove('slide-in');
+      setTimeout(() => marqueeText.classList.remove('slide-in-active'), 220);
+    });
+  } else {
+    marqueeText.className = 'marquee-inner';
+    marqueeText.textContent = text;
+  }
+  runMarquee();
+  if (alertCountEl) {
+    const pending = state.S.tasks.filter(t => !t.done).length;
+    alertCountEl.textContent = String(pending);
+  }
+  // restart progress
+  progressBar.style.animation = 'none';
+  void progressBar.offsetWidth;
+  progressBar.style.animation = '';
+  const alertMs = Math.max(1, +state.S.alertSeconds || 8) * 1000;
+  progressBar.style.animationDuration = (alertMs / 1000) + 's';
+  if (hideTimer) clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    // com o mouse em cima o alerta fica; sai quando o cursor sai
+    if (state.view === 'alert' && !state.hovering) setView('idle');
+  }, alertMs);
+}
+
+function completeAlertTask() {
+  const task = alertTask();
+  if (!task) return;
+  // mark done
+  task.done = true;
+  task.updatedAt = Date.now();
+  save();
+  renderList();
+  // animate out left
+  marqueeText.classList.add('slide-out');
+  if (hideTimer) clearTimeout(hideTimer);
+  setTimeout(() => {
+    marqueeText.classList.remove('slide-out');
+    const next = state.S.tasks.find(t => !t.done);
+    if (next) {
+      state.lastId = next.id;
+      showAlert(next, { slideIn: true });
+    } else {
+      if (alertCountEl) alertCountEl.textContent = '0';
+      setView('idle');
+    }
+  }, 220);
+}
+
+function runMarquee() {
+  marqueeText.getAnimations().forEach(a => a.cancel());
+  marqueeText.style.transform = 'translateX(0)';
+  requestAnimationFrame(() => {
+    const container = marqueeText.parentElement;
+    const cw = container.clientWidth - 32;
+    const tw = marqueeText.scrollWidth;
+    // texto que cabe fica centralizado; só vira letreiro quando não cabe
+    const fits = tw <= cw;
+    container.style.justifyContent = fits ? 'center' : 'flex-start';
+    if (fits) return;
+    const d = tw - cw;
+    marqueeText.animate(
+      [{ transform: 'translateX(0)' }, { transform: `translateX(-${d}px)` }],
+      { duration: Math.max(3400, d * 24), iterations: Infinity, direction: 'alternate', easing: 'cubic-bezier(.4,0,.6,1)', delay: 500 }
+    );
+  });
+}
+
+function updateNextHint() {
+  if (!nextHint) return;
+  const rem = Math.max(0, nextAlertAt - Date.now());
+  const s = Math.ceil(rem / 1000);
+  if (s < 60) nextHint.textContent = `próximo em ${s}s`;
+  else if (s < 3600) nextHint.textContent = `próximo em ${Math.ceil(s / 60)} min`;
+  else nextHint.textContent = `próximo em ${Math.ceil(s / 3600)} h`;
+}
+
+// ---------- settings wiring ----------
+document.getElementById('cog').addEventListener('click', () => setView('settings'));
+document.getElementById('back').addEventListener('click', () => setView('open'));
+document.getElementById('quit').addEventListener('click', () => send({ t: 'quit' }));
+document.getElementById('reset').addEventListener('click', () => {
+  const tasks = state.S.tasks;
+  state.S = { ...JSON.parse(JSON.stringify(DEFAULTS)), tasks };
+  state.S.sort = 'last-added';
+  state.S.tasks = sortTasks(state.S.tasks, state.S.sort);
+  if (sortSelect) sortSelect.value = state.S.sort;
+  state.S.theme = 'nord';
+  state.S.border = DEFAULTS.border; state.S.bg = DEFAULTS.bg; state.S.text = DEFAULTS.text;
+  applyPalette();
+  cBorder.value = state.S.border; cBg.value = state.S.bg; cText.value = state.S.text;
+  intervalInput.value = state.S.interval;
+  unitSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.unit === state.S.unit));
+  alertSecondsInput.value = state.S.alertSeconds;
+  idleVisibleHeightInput.value = state.S.idleVisibleHeight ?? 5;
+  quietStartInput.value = state.S.quietStart;
+  quietEndInput.value = state.S.quietEnd;
+  autostartInput.checked = !!state.S.autostart;
+  updateQuietHint();
+  if (sortSelect) sortSelect.value = state.S.sort;
+  renderThemes();
+  save();
+  scheduleNext();
+});
+
+unitSeg.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-unit]');
+  if (!btn) return;
+  state.S.unit = btn.dataset.unit;
+  unitSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn));
+  save();
+  scheduleNext();
+});
+
+intervalInput.addEventListener('input', () => {
+  const v = Math.max(1, Math.min(999, +intervalInput.value || 1));
+  intervalInput.value = v;
+  state.S.interval = v;
+  save();
+  scheduleNext();
+});
+
+alertSecondsInput.addEventListener('input', () => {
+  const v = Math.max(1, Math.min(60, +alertSecondsInput.value || 8));
+  alertSecondsInput.value = v;
+  state.S.alertSeconds = v;
+  save();
+});
+
+idleVisibleHeightInput.addEventListener('input', () => {
+  const v = Math.max(1, Math.min(30, +idleVisibleHeightInput.value || 5));
+  idleVisibleHeightInput.value = v;
+  state.S.idleVisibleHeight = v;
+  save();
+  send({ t: 'idleHeight', h: v });
+  if (state.view === 'idle') setView('idle');
+  else { const f=[notch.offsetWidth,notch.offsetHeight]; const [w,h]=targetSize(state.view); trackSize(f,[w,h],200); }
+});
+
+function updateQuietHint() {
+  if (quietHint) quietHint.textContent = (state.S.quietStart && state.S.quietEnd) ? 'ativo' : 'desligado';
+}
+
+function updateMcpInfo() {
+  const port = 7878;
+  const url = `http://127.0.0.1:${port}/mcp`;
+  if (mcpUrl) mcpUrl.value = url;
+  if (mcpHint) mcpHint.textContent = `127.0.0.1:${port}`;
+}
+quietStartInput.addEventListener('change', () => {
+  state.S.quietStart = quietStartInput.value;
+  updateQuietHint();
+  save();
+});
+quietEndInput.addEventListener('change', () => {
+  state.S.quietEnd = quietEndInput.value;
+  updateQuietHint();
+  save();
+});
+
+autostartInput.addEventListener('change', () => {
+  state.S.autostart = !!autostartInput.checked;
+  send({ t: 'autostart', on: state.S.autostart });
+  save();
+});
+
+if (sortSelect) sortSelect.addEventListener('change', () => {
+  state.S.sort = normalizeSort(sortSelect.value);
+  state.S.tasks = sortTasks(state.S.tasks, state.S.sort);
+  save();
+  renderList();
+});
+
+cBorder.addEventListener('input', () => { state.S.border = cBorder.value; state.S.theme = 'custom'; applyPalette(); renderThemes(); save(); });
+cBg.addEventListener('input', () => { state.S.bg = cBg.value; state.S.theme = 'custom'; applyPalette(); renderThemes(); save(); });
+cText.addEventListener('input', () => { state.S.text = cText.value; state.S.theme = 'custom'; applyPalette(); renderThemes(); save(); });
+
+const addDesc = document.getElementById('addDesc');
+addForm.addEventListener('submit', e => {
+  e.preventDefault();
+  addTask(addInput.value, addDesc.value);
+  addInput.value = '';
+  addDesc.value = '';
+});
+
+// ---------- keyboard ----------
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (state.view === 'settings') setView('open');
+    else if (state.view === 'open') setView('idle');
+  }
+});
+
+// ---------- init ----------
+renderThemes();
+
+setInterval(updateNextHint, 500);
+
+send({ t: 'load' });
+
+// preview alert after load
+setTimeout(() => {
+  if (state.S.tasks.some(t => !t.done)) {
+    const pending = state.S.tasks.filter(t => !t.done);
+    state.lastId = pending[0].id;
+    showAlert(pending[0]);
+    scheduleNext();
+  } else {
+    scheduleNext();
+  }
+}, 1500);
+
+// initial size
+send({ t: 'size', w: 560, h: Math.max(1, Math.min(30, +state.S.idleVisibleHeight || 5)) });
+</script>
+</body>
+</html>
