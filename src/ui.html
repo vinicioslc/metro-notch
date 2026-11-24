@@ -36,20 +36,22 @@ body {
   padding-top: 0;
 }
 
+/* O desfoque vem do acrylic do DWM (main.rs). Um backdrop-filter aqui criava
+   uma segunda camada recortada na curva: borda dura sobre vidro. */
 #notch {
   position: relative;
   flex: none;
   width: 560px;
   height: 5px;
-  border-radius: 0 0 10px 10px;
-  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
-  border-top: none;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
-  box-shadow: 0 8px 30px -10px rgba(0,0,0,.55), inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+  border-radius: 0 0 8px 8px;
+  border: none;
+  background: color-mix(in srgb, var(--bg) 58%, transparent);
+  box-shadow:
+    inset 0 0 0 .5px color-mix(in srgb, var(--text) 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 7%, transparent),
+    0 10px 32px -16px rgba(0,0,0,.65);
   overflow: hidden;
-  transition: width .45s cubic-bezier(.16,1,.3,1), height .45s cubic-bezier(.16,1,.3,1), border-color .24s ease, background .24s ease, border-radius .45s cubic-bezier(.16,1,.3,1);
+  transition: width .45s cubic-bezier(.16,1,.3,1), height .45s cubic-bezier(.16,1,.3,1), background .24s ease, box-shadow .24s ease;
   will-change: width, height;
 }
 
@@ -57,11 +59,11 @@ body {
 .state-open #notch,
 .state-settings #notch {
   border-radius: 0 0 18px 18px;
-}
-
-#notch:hover,
-.state-alert #notch {
-  border-color: color-mix(in srgb, var(--text) 16%, transparent);
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+  box-shadow:
+    inset 0 0 0 .5px color-mix(in srgb, var(--text) 16%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent),
+    0 18px 48px -20px rgba(0,0,0,.7);
 }
 
 .sec {

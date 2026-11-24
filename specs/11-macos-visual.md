@@ -17,6 +17,13 @@ sistema Apple/SF, controles pill/rounded, acento azul macOS.
 - MV-04: migração única `macosMigrated` aplica tema macOS quando tema anterior
   era `metro` ou ausente/desconhecido; tarefas preservadas.
 - MV-05: `shape_window` Win32 usa cantos inferiores arredondados.
+- MV-06: sem borda sólida nem `backdrop-filter` no `#notch` — o vidro vem do
+  acrylic do DWM. Raio CSS alinhado ao raio da região Win32 (8px ocioso,
+  18px expandido) e sem transição de raio, para a curva não brigar com o
+  recorte da janela.
+
+## Origem (ajuste)
+> "melhore a borda, ainda está dura com blur e a curva ao mesmo tempo"
 
 ## Rastreio
 - Implementação: `src/ui.html`, `src/main.rs`.
