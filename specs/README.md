@@ -13,8 +13,8 @@ código para rastreio.
 | AL-01..AL-05 | [06-alert-compact.md](06-alert-compact.md) | implementado |
 | HE-01..HE-02 | [07-hover-empty-and-compact-height.md](07-hover-empty-and-compact-height.md) | implementado |
 | HD-01..HD-02 | [08-hover-delay-and-idle-height.md](08-hover-delay-and-idle-height.md) | implementado |
-| SC-01..SC-04, LC-01..LC-05 | [09-llm-chat-and-screen.md](09-llm-chat-and-screen.md) | implementado |
+| SC-01..SC-04, LC-01..LC-05, AU-01..AU-03 | [09-llm-chat-and-screen.md](09-llm-chat-and-screen.md) | implementado |
 | MN-01..MN-08 | [10-rename-metro-notch.md](10-rename-metro-notch.md) | implementado |
+| MV-01..MV-05 | [11-macos-visual.md](11-macos-visual.md) | implementado |
 | RF-19 | [2026-11-22-sorting-order.md](2026-11-22-sorting-order.md) | implementado |
 | ED-01 | [2026-11-22-task-editing.md](2026-11-22-task-editing.md) | implementado |
-| SC-01..SC-04, LC-01..LC-05 | [09-llm-chat-and-screen.md](09-llm-chat-and-screen.md) | implementado |
